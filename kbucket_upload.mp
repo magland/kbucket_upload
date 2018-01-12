@@ -1,6 +1,6 @@
 #!/usr/bin/env nodejs
 
-require('dotenv').config();
+require('dotenv').config({path:__dirname+'/.env'});
 
 var fs = require('fs');
 var request = require('request');
@@ -52,7 +52,7 @@ else {
 
 function handle_upload(params,callback) {
 	if (!process.env.KBUCKET_AUTH) {
-		callback('Environment variable KBUCKET_AUTH not set.');
+		callback('Environment variable KBUCKET_AUTH not set (use a .env file).');
 		return;
 	}
 	var fname=params.file;
