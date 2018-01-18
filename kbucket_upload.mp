@@ -58,17 +58,6 @@ else if (arg1=='upload') {
 		}
 	});
 }
-else if (arg1=='download') {
-	handle_download(CLP.namedParameters,function(err) {
-		if (err) {
-			console.error(err);
-			process.exit(-1);
-		}
-		else {
-			console.log ('Download successful.');
-		}
-	});
-}
 else {
 	console.error('Unrecognized processor: '+arg1);
 	process.exit(-1);
