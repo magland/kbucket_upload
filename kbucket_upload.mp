@@ -1,6 +1,6 @@
 #!/usr/bin/env nodejs
 
-require('dotenv').config();
+require('dotenv').config({path:__dirname+'/.env'});
 
 var fs = require('fs');
 var request = require('request');
@@ -16,6 +16,19 @@ var spec={
 			],
 			outputs:[],
 			parameters:[
+				{name:'force_run',optional:true}
+			],
+			opts:{
+			}
+		},
+		{
+			name:'kbucket.download',
+			exe_command:__filename+' download $(arguments)',
+			version:0.1,
+			inputs:[],
+			outputs:[{name:'file',optional:false}],
+			parameters:[
+				{name:'sha1',optional:false},
 				{name:'force_run',optional:true}
 			],
 			opts:{
@@ -45,14 +58,30 @@ else if (arg1=='upload') {
 		}
 	});
 }
+else if (arg1=='download') {
+	handle_download(CLP.namedParameters,function(err) {
+		if (err) {
+			console.error(err);
+			process.exit(-1);
+		}
+		else {
+			console.log ('Download successful.');
+		}
+	});
+}
 else {
 	console.error('Unrecognized processor: '+arg1);
 	process.exit(-1);
 }
 
 function handle_upload(params,callback) {
-	if (!process.env.KBUCKET_AUTH) {
-		callback('Environment variable KBUCKET_AUTH not set.');
+	var kbucket_upload_auth=process.env.KBUCKET_UPLOAD_AUTH||process.env.KBUCKET_AUTH;
+	if (!kbucket_upload_auth) {
+		callback('Environment variable KBUCKET_UPLOAD_AUTH not set.');
+		return;
+	}
+	if (!process.env.KBUCKET_URL) {
+		callback('Environment variable KBUCKET_URL not set.');
 		return;
 	}
 	var fname=params.file;
@@ -66,10 +95,10 @@ function handle_upload(params,callback) {
 		return;
 	}
 
-	var base_url='https://river.simonsfoundation.org';
+	var base_url=process.env.KBUCKET_URL;
 	var resumable_id=make_random_id(10);
 	var url=base_url+'/upload?';
-	url+='auth='+process.env.KBUCKET_AUTH;
+	url+='auth='+kbucket_upload_auth;
 	url+='&resumableChunkNumber=1';
 	url+='&resumableChunkSize='+size;
 	url+='&resumableCurrentChunkSize='+size;
@@ -118,6 +147,42 @@ function handle_upload(params,callback) {
 	});
 }
 
+function handle_download(params,callback) {
+	var kbucket_download_auth=process.env.KBUCKET_DOWNLOAD_AUTH;
+	if (!kbucket_download_auth) {
+		console.warn('Warning: Environment variable KBUCKET_DOWNLOAD_AUTH not set. Using no download auth.');
+	}
+	if (!process.env.KBUCKET_URL) {
+		callback('Environment variable KBUCKET_URL not set.');
+		return;
+	}
+	var fname=params.file;
+	if (!fname) {
+		callback('Missing parameter: file');
+		return;
+	}
+	var sha1=params.sha1;
+	if (!sha1) {
+		callback('Missing parameter: sha1');
+		return;
+	}
+
+	var base_url=process.env.KBUCKET_URL;
+	var url=base_url+'/download/'+sha1+'?';
+	if (kbucket_download_auth)
+		url+='auth='+kbucket_download_auth;
+
+	console.log ('Downloading file...');
+	download_file(url,fname,function(err) {
+		if (err) {
+			callback('Error downloading file content: '+err);
+			return;
+		}
+		console.log('Downloaded file with sha1='+sha1);
+		callback(null);
+	});
+}
+
 function get_file_size(fname) {
 	try {
 		var stat=require('fs').statSync(fname);
@@ -146,6 +211,25 @@ function make_random_id(num_chars)
         text += possible.charAt(Math.floor(Math.random() * possible.length));
 
     return text;
+}
+
+function download_file(url,fname,callback) {
+	var r = request(url);
+	r.on('response',function(res) {
+		var wstream=require('fs').createWriteStream(fname);
+		res.pipe(wstream);
+		wstream.on('error',function(err) {
+			callback('Error writing to file: '+err);
+		});
+		wstream.on('end',function() {
+			callback(null);
+		});
+
+	});
+
+	r.on('error', function (err) {
+		callback('Error in download: '+err);
+	});
 }
 
 function upload_file(url,fname,callback) {
