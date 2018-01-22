@@ -143,7 +143,7 @@ function handle_upload(params,callback) {
 				callback('Incorrect size in returned prv file');
 				return;
 			}
-			console.log('Uploaded file with sha1='+obj.prv.original_checksum+' and size='+obj.prv.original_size);
+			console.log ('Uploaded file with sha1='+obj.prv.original_checksum+' and size='+obj.prv.original_size);
 			callback(null);
 		});
 	});
@@ -180,7 +180,7 @@ function handle_download(params,callback) {
 			callback('Error downloading file content: '+err);
 			return;
 		}
-		console.log('Downloaded file with sha1='+sha1);
+		console.log ('Downloaded file with sha1='+sha1);
 		callback(null);
 	});
 }
@@ -235,37 +235,6 @@ function download_file(url,fname,callback) {
 }
 
 function upload_file(url,fname,callback) {
-	/*
-	var parts=require('url').parse(url);
-
-    var obj={
-    	hostname:parts.hostname,
-    	port:443,
-    	method:'POST',
-    	path:parts.path
-    };
-	var REQ=require('https').request(obj,function(RES) {
-		console.log('RES.');
-		//console.log(RES);
-		RES.on('data',function(dd) {
-			console.log('data');
-			console.log(dd);
-		});
-		RES.on('end', function () {
-			console.log('end');
-			callback(null);
-		});
-	});
-
-	REQ.on('error', function (err) {
-		console.log('error');
-		callback('Error in upload: '+err);
-	});
-
-	var rs = require('fs').createReadStream(fname);
-	rs.pipe(REQ);
-	*/
-
 	var rs = require('fs').createReadStream(fname);
 	var ws = request.post(url);
 
