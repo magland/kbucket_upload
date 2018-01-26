@@ -1,5 +1,13 @@
 #!/usr/bin/env nodejs
 
+/* Set the following environment variables:
+
+KBUCKET_URL
+KBUCKET_UPLOAD_AUTH
+KBUCKET_DOWNLOAD_AUTH
+
+*/
+
 
 
 require('dotenv').config({path:__dirname+'/.env'});
@@ -18,9 +26,9 @@ var spec={
 			],
 			outputs:[],
 			parameters:[
-				{name:'force_run',optional:true}
 			],
 			opts:{
+				force_run:true
 			}
 		},
 		{
@@ -30,8 +38,7 @@ var spec={
 			inputs:[],
 			outputs:[{name:'file',optional:false}],
 			parameters:[
-				{name:'sha1',optional:false},
-				{name:'force_run',optional:true}
+				{name:'sha1',optional:false}
 			],
 			opts:{
 			}
