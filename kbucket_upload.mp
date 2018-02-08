@@ -242,11 +242,11 @@ function download_file(url,fname,callback) {
 }
 
 function upload_file(url,fname,callback) {
-	//var rs = require('fs').createReadStream(fname);
+	var rs = require('fs').createReadStream(fname);
 	var ws = request.post({
 		headers:{},
 		url:url,
-		body:'testing'
+		body:rs
 	},function(error,response,body2) {
 		if (error) {
 			callback(error.message);
