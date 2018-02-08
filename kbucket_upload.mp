@@ -243,10 +243,27 @@ function download_file(url,fname,callback) {
 
 function upload_file(url,fname,callback) {
 	var rs = require('fs').createReadStream(fname);
-	var ws = request.post(url);
+	var ws = request.post(url,function(err,http_response,body) {
+		//important: It seems like this callback is important
+		if (err) {
+			callback(err);
+			return;
+		}
+		if (http_response.statusCode!=200) {
+			callback('Got error status code: '+http_response.statusCode);
+			return;
+		}
+		callback(null);
+		
+		/*
+		console.log(http_response);
+		console.log('err: '+err);
+		console.log('http_response.statusCode: '+http_response.statusCode);
+		*/
+	});
 
 	ws.on('end', function () {
-		callback(null);
+		//callback(null); //we used to do the callback here
 	});
 
 	ws.on('error', function (err) {
