@@ -124,7 +124,7 @@ function handle_upload(params,callback) {
 	url2+='&resumableTotalSize='+size;
 	url2+='&resumableDone=true';
 
-	console.log ('Uploading file...');
+	console.log ('Uploading file to: '+url);
 	upload_file(url,fname,function(err) {
 		if (err) {
 			callback('Error uploading file content: '+err);
@@ -242,9 +242,20 @@ function download_file(url,fname,callback) {
 }
 
 function upload_file(url,fname,callback) {
-	var rs = require('fs').createReadStream(fname);
-	var ws = request.post(url);
+	//var rs = require('fs').createReadStream(fname);
+	var ws = request.post({
+		headers:{},
+		url:url,
+		body:'testing'
+	},function(error,response,body2) {
+		if (error) {
+			callback(error.message);
+			return;
+		}
+		callback(null);
+	});
 
+	/*
 	ws.on('end', function () {
 		callback(null);
 	});
@@ -252,8 +263,9 @@ function upload_file(url,fname,callback) {
 	ws.on('error', function (err) {
 		callback('Error in upload: '+err);
 	});
+	*/
 
-	rs.pipe(ws);
+	//rs.pipe(ws);
 }
 
 function post_data(url,body,callback) {
