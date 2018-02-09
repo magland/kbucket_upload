@@ -26,6 +26,7 @@ var spec={
 			],
 			outputs:[],
 			parameters:[
+				{name:'sha1',optional:true}
 			],
 			opts:{
 				force_run:true
@@ -104,55 +105,90 @@ function handle_upload(params,callback) {
 		return;
 	}
 
+	if (params.sha1) {
+		check_on_kbucket(params.sha1,function(found) {
+			if (found) {
+				console.log ('Already found on kbucket (sha1='+params.sha1+')');
+				callback(null);
+				return;
+			}
+			handle_upload_2();
+		});
+	}
+	else {
+		handle_upload_2();
+	}
+
+	function handle_upload_2() {
+		var base_url=process.env.KBUCKET_URL;
+		var resumable_id=make_random_id(10);
+		var url=base_url+'/upload?';
+		url+='auth='+kbucket_upload_auth;
+		url+='&resumableChunkNumber=1';
+		url+='&resumableChunkSize='+size;
+		url+='&resumableCurrentChunkSize='+size;
+		url+='&resumableTotalSize='+size;
+		url+='&resumableType=';
+		url+='&resumableIdentifier='+resumable_id;
+		url+='&resumableFilename=dummy.dat';
+		url+='&resumableRelativePath=dummy.dat';
+		url+='&resumableTotalChunks=1';
+
+		var url2=base_url+'/upload?';
+		url2+='resumableIdentifier='+resumable_id;
+		url2+='&resumableFileName=dummy.dat';
+		url2+='&resumableTotalSize='+size;
+		url2+='&resumableDone=true';
+
+		console.log ('Uploading file...');
+		upload_file(url,fname,function(err) {
+			if (err) {
+				callback('Error uploading file content: '+err);
+				return;
+			}
+			console.log ('Finalizing upload...');
+			post_data(url2,'',function(err2,response_body) {
+				if (err2) {
+					callback('Error finalizing upload: '+err2);
+					return;
+				}
+				var obj=try_parse_json(response_body);
+				if (!obj) {
+					console.log (response_body);
+					callback('Error parsing JSON response');
+					return;
+				}
+				if (!obj.prv) {
+					callback('Response does not have a prv field.');
+					return;
+				}
+				if (obj.prv.original_size!=get_file_size(fname)) {
+					callback('Incorrect size in returned prv file');
+					return;
+				}
+				console.log ('Uploaded file with sha1='+obj.prv.original_checksum+' and size='+obj.prv.original_size);
+				if (params.sha1) {
+					if (params.sha1!=obj.prv.original_checksum) {
+						callback('Checksum of uploaded file does not match: '+params.sha1+' <> '+obj.prv.original_checksum);
+						return;
+					}
+				}
+				callback(null);
+			});
+		});
+	}
+}
+
+function check_on_kbucket(sha1,callback) {
 	var base_url=process.env.KBUCKET_URL;
-	var resumable_id=make_random_id(10);
-	var url=base_url+'/upload?';
-	url+='auth='+kbucket_upload_auth;
-	url+='&resumableChunkNumber=1';
-	url+='&resumableChunkSize='+size;
-	url+='&resumableCurrentChunkSize='+size;
-	url+='&resumableTotalSize='+size;
-	url+='&resumableType=';
-	url+='&resumableIdentifier='+resumable_id;
-	url+='&resumableFilename=dummy.dat';
-	url+='&resumableRelativePath=dummy.dat';
-	url+='&resumableTotalChunks=1';
-
-	var url2=base_url+'/upload?';
-	url2+='resumableIdentifier='+resumable_id;
-	url2+='&resumableFileName=dummy.dat';
-	url2+='&resumableTotalSize='+size;
-	url2+='&resumableDone=true';
-
-	console.log ('Uploading file...');
-	upload_file(url,fname,function(err) {
-		if (err) {
-			callback('Error uploading file content: '+err);
+	var url=base_url+'/stat/'+sha1;
+	nodejs_http_get_json(url,{},function(tmp) {
+		if (!tmp.success) {
+			console.log ('Problem checking for file: '+url+': '+tmp.error);
+			callback(false);
 			return;
 		}
-		console.log ('Finalizing upload...');
-		post_data(url2,'',function(err2,response_body) {
-			if (err2) {
-				callback('Error finalizing upload: '+err2);
-				return;
-			}
-			var obj=try_parse_json(response_body);
-			if (!obj) {
-				console.log (response_body);
-				callback('Error parsing JSON response');
-				return;
-			}
-			if (!obj.prv) {
-				callback('Response does not have a prv field.');
-				return;
-			}
-			if (obj.prv.original_size!=get_file_size(fname)) {
-				callback('Incorrect size in returned prv file');
-				return;
-			}
-			console.log ('Uploaded file with sha1='+obj.prv.original_checksum+' and size='+obj.prv.original_size);
-			callback(null);
-		});
+		callback(tmp.object.found);
 	});
 }
 
@@ -254,12 +290,6 @@ function upload_file(url,fname,callback) {
 			return;
 		}
 		callback(null);
-		
-		/*
-		console.log(http_response);
-		console.log('err: '+err);
-		console.log('http_response.statusCode: '+http_response.statusCode);
-		*/
 	});
 
 	ws.on('end', function () {
@@ -315,3 +345,40 @@ function CLParams(argv) {
 		}
 	}
 };
+
+
+function nodejs_http_get_text(url,headers,callback) {
+        if (!callback) {
+                callback=headers;
+                headers=null;
+        }
+        require('request').get({url:url,headers:headers},function(err,response,body) {
+                if (err) {
+                        if (callback) callback({success:false,error:err.message});
+                        return;
+                }
+                if (callback) callback({success:true,text:body});
+        });
+}
+function nodejs_http_get_json(url,headers,callback) {
+	if (!callback) {
+		callback=headers;
+		headers=null;
+	}
+	nodejs_http_get_text(url,headers,function(tmp) {
+      if (!tmp.success) {
+        callback(tmp);
+        return;
+      }
+      var obj;
+      try {
+        obj=JSON.parse(tmp.text);
+      }
+      catch(err) {
+      	console.log ('Error parsing: '+tmp.text);
+        callback({success:false,error:'Error parsing.'});
+        return;
+      }
+      callback({success:true,object:obj});
+    });
+}
