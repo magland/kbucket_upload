@@ -8,8 +8,6 @@ KBUCKET_DOWNLOAD_AUTH
 
 */
 
-
-
 require('dotenv').config({path:__dirname+'/.env'});
 
 var fs = require('fs');
